@@ -1,13 +1,16 @@
 # oreo
 
-Minimalist serialization library inspired by Cereal
+[![Build Status](https://api.travis-ci.org/jyaif/oreo.svg)](https://travis-ci.org/jyaif/oreo)
+
+Minimalist serialization library inspired by [Cereal](https://github.com/USCiLab/cereal).
 
 Some advantages compared to Cereal:
 * Does not use RTTI.
-* Lib is very few LOC. It's easier to customise, and with faster compile time.
+* Lib is very few LOC: it is easier to customise, and has faster compile time.
+* Smaller footprint in the final binary. I shaved 8kb from a binary in release mode by switching ~20 classes from cereal to oreo.
 
-Main disadvantages compared to Cereal:
-* Only serializes/deserializes structs with integers, std::string, std::vector.
+Some disadvantages compared to Cereal:
+* Only serializes/deserializes structs with integers, enums, std::string, std::vector.
 * Only serializes/deserializes to CPU-agnostic binary.
 
 TODO:

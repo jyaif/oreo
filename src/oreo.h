@@ -10,6 +10,10 @@ namespace oreo {
 
 class SerializationArchive {
  public:
+  SerializationArchive() {}
+
+  SerializationArchive(std::vector<uint8_t> const& buffer) : buffer_(buffer) {}
+
   template <class... Types>
   inline void operator()(Types&&... args) {
     process(std::forward<Types>(args)...);
@@ -29,13 +33,17 @@ class SerializationArchive {
 
   // For integral types
   template <typename T>
-  typename std::enable_if<std::is_integral<T>::value>::type processImpl(T a) {
+  typename std::enable_if<std::is_integral<T>::value ||
+                          std::is_enum<T>::value>::type
+  processImpl(T a) {
     buffer_.insert(buffer_.end(), ((uint8_t*)&a), ((uint8_t*)&a) + sizeof(a));
   }
 
   // For complex types
   template <typename T>
-  typename std::enable_if<!std::is_integral<T>::value>::type processImpl(T a) {
+  typename std::enable_if<!(std::is_integral<T>::value ||
+                            std::is_enum<T>::value)>::type
+  processImpl(T a) {
     a.runArchive(*this);
   }
 
@@ -66,6 +74,11 @@ class DeserializationArchive {
         data_end_(buffer_.data() + buffer_.size()),
         current_cursor_(buffer_.data()) {}
 
+  DeserializationArchive(std::vector<int8_t> const& buffer_)
+      : data_start_(buffer_.data()),
+        data_end_((buffer_.data() + buffer_.size())),
+        current_cursor_(buffer_.data()) {}
+
   template <class... Types>
   inline void operator()(Types&&... args) {
     process(std::forward<Types>(args)...);
@@ -83,16 +96,20 @@ class DeserializationArchive {
     process(std::forward<Other>(tail)...);
   }
 
-  // For integral types
+  // For integral types and e
   template <typename T>
-  typename std::enable_if<std::is_integral<T>::value>::type processImpl(T& a) {
+  typename std::enable_if<std::is_integral<T>::value ||
+                          std::is_enum<T>::value>::type
+  processImpl(T& a) {
     memcpy(&a, current_cursor_, sizeof(T));
-    current_cursor_ += sizeof(T);
+    current_cursor_ = static_cast<const char*>(current_cursor_) + sizeof(T);
   }
 
   // For complex types
   template <typename T>
-  typename std::enable_if<!std::is_integral<T>::value>::type processImpl(T& a) {
+  typename std::enable_if<!(std::is_integral<T>::value ||
+                            std::is_enum<T>::value)>::type
+  processImpl(T& a) {
     a.runArchive(*this);
   }
 
@@ -103,7 +120,7 @@ class DeserializationArchive {
     const char* ptr = (const char*)current_cursor_;
     size_t l = length;
     s = std::string(ptr, l);
-    current_cursor_ += length;
+    current_cursor_ = static_cast<const char*>(current_cursor_) + length;
   }
 
   // For vectors
@@ -116,9 +133,9 @@ class DeserializationArchive {
       processImpl(v[i]);
     }
   }
-  uint8_t const* data_start_;
-  uint8_t const* data_end_;
-  uint8_t const* current_cursor_;
+  void const* data_start_;
+  void const* data_end_;
+  void const* current_cursor_;
 };
 
 }  // namespace oreo
