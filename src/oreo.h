@@ -2,6 +2,7 @@
 #define OREO_SRC_OREO_H_
 
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <utility>
 #include <vector>
