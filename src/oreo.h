@@ -32,20 +32,12 @@ class SerializationArchive {
     process(std::forward<Other>(tail)...);
   }
 
-  // For integral types
+  // For integral types and enums
   template <typename T>
   typename std::enable_if<std::is_integral<T>::value ||
                           std::is_enum<T>::value>::type
   processImpl(T a) {
     buffer_.insert(buffer_.end(), ((uint8_t*)&a), ((uint8_t*)&a) + sizeof(a));
-  }
-
-  // For complex types
-  template <typename T>
-  typename std::enable_if<!(std::is_integral<T>::value ||
-                            std::is_enum<T>::value)>::type
-  processImpl(T a) {
-    a.runArchive(*this);
   }
 
   // For strings
@@ -65,20 +57,26 @@ class SerializationArchive {
     }
   }
 
+  // For everything else
+  template <typename T>
+  typename std::enable_if<!(std::is_integral<T>::value ||
+                            std::is_enum<T>::value)>::type
+  processImpl(T a) {
+    a.runArchive(*this);
+  }
+
   std::vector<uint8_t> buffer_;
 };
 
 class DeserializationArchive {
  public:
+  DeserializationArchive(void const* data) : current_cursor_(data){};
+
   DeserializationArchive(std::vector<uint8_t> const& buffer_)
-      : data_start_(buffer_.data()),
-        data_end_(buffer_.data() + buffer_.size()),
-        current_cursor_(buffer_.data()) {}
+      : DeserializationArchive(buffer_.data()) {}
 
   DeserializationArchive(std::vector<int8_t> const& buffer_)
-      : data_start_(buffer_.data()),
-        data_end_((buffer_.data() + buffer_.size())),
-        current_cursor_(buffer_.data()) {}
+      : DeserializationArchive(buffer_.data()) {}
 
   template <class... Types>
   inline void operator()(Types&&... args) {
@@ -97,21 +95,13 @@ class DeserializationArchive {
     process(std::forward<Other>(tail)...);
   }
 
-  // For integral types and e
+  // For integral types and enums
   template <typename T>
   typename std::enable_if<std::is_integral<T>::value ||
                           std::is_enum<T>::value>::type
   processImpl(T& a) {
     memcpy(&a, current_cursor_, sizeof(T));
     current_cursor_ = static_cast<const char*>(current_cursor_) + sizeof(T);
-  }
-
-  // For complex types
-  template <typename T>
-  typename std::enable_if<!(std::is_integral<T>::value ||
-                            std::is_enum<T>::value)>::type
-  processImpl(T& a) {
-    a.runArchive(*this);
   }
 
   // For strings
@@ -134,8 +124,15 @@ class DeserializationArchive {
       processImpl(v[i]);
     }
   }
-  void const* data_start_;
-  void const* data_end_;
+
+  // For everything else
+  template <typename T>
+  typename std::enable_if<!(std::is_integral<T>::value ||
+                            std::is_enum<T>::value)>::type
+  processImpl(T& a) {
+    a.runArchive(*this);
+  }
+
   void const* current_cursor_;
 };
 
