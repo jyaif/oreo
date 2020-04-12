@@ -6,7 +6,7 @@ Minimalist serialization library inspired by [Cereal](https://github.com/USCiLab
 It's used by a game for serializing network messages.
 
 Some disadvantages compared to Cereal:
-* Only serializes/deserializes structs with integers, enums, std::string, std::vector.
+* Only serializes/deserializes structs with booleans, integers, enums, std::string, std::vector.
 * Only serializes/deserializes to binary, with the endianness of the system.
 * No documentation and no efforts made to give useful compile-time error messages.
 * No versioning.
@@ -19,7 +19,6 @@ Some advantages compared to Cereal:
 TODO:
 * Handle errors when deserializing.
 * Enforce maximum string/vector size when serializing.
-* Variable width integer.
 
 ---
 
