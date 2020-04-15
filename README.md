@@ -17,8 +17,7 @@ Some advantages compared to Cereal:
 * Smaller footprint in the final binary. I shaved 8kb from a binary in release mode by switching ~20 smallish classes from cereal to oreo.
 
 TODO:
-* Handle errors when deserializing.
-* Enforce maximum string/vector size when serializing.
+* Allow configuring maximum string/vector size when deserializing.
 
 ---
 

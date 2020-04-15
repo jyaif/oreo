@@ -10,27 +10,28 @@
 
 namespace oreo {
 
+// 1 GB.
+constexpr size_t kMaxStringLength = 1073741824;
+constexpr size_t kMaxVectorElementCount = 1073741824;
+
 class SerializationArchive {
  public:
   SerializationArchive() {}
 
   SerializationArchive(std::vector<uint8_t> const& buffer) : buffer_(buffer) {}
 
-  template <class... Types>
-  inline void operator()(Types&&... args) {
-    process(std::forward<Types>(args)...);
-  }
-
   template <class T>
-  inline void process(T&& head) {
-    processImpl(head);
+  inline bool Process(T&& head) {
+    ProcessImpl(head);
+    return true;
   }
 
   // Unwinds to process all data
   template <class T, class... Other>
-  inline void process(T&& head, Other&&... tail) {
-    process(std::forward<T>(head));
-    process(std::forward<Other>(tail)...);
+  inline bool Process(T&& head, Other&&... tail) {
+    ProcessImpl(std::forward<T>(head));
+    Process(std::forward<Other>(tail)...);
+    return true;
   }
 
   // For integral types and enums
@@ -38,46 +39,47 @@ class SerializationArchive {
   typename std::enable_if<(std::is_integral<T>::value ||
                            std::is_enum<T>::value) &&
                           !std::is_same<T, bool>::value>::type
-  processImpl(T i) {
+  ProcessImpl(T i) {
     static_assert(sizeof(T) <= 8);
     // If 2 bytes or more, use variable length integer encoding.
-    if (sizeof(i) >= 2) {
+    if constexpr (sizeof(i) >= 2) {
       typename std::make_unsigned<T>::type unsigned_i = i;
       // Write out 7 bits at a time.
       // The high bit of the byte, when on, tells reader to continue reading
       // more bytes.
       while (unsigned_i >= 0b10000000) {
-        buffer_.push_back((uint8_t)(unsigned_i | 0b10000000));
-        unsigned_i = (T)(unsigned_i >> 7);
+        buffer_.push_back(static_cast<uint8_t>(unsigned_i | 0b10000000));
+        unsigned_i = static_cast<T>(unsigned_i >> 7);
       }
-      buffer_.push_back((uint8_t)unsigned_i);
+      buffer_.push_back(static_cast<uint8_t>(unsigned_i));
     } else {
-      buffer_.insert(buffer_.end(), ((uint8_t*)&i), ((uint8_t*)&i) + sizeof(i));
+      buffer_.insert(buffer_.end(), reinterpret_cast<uint8_t*>(&i),
+                     reinterpret_cast<uint8_t*>(&i) + sizeof(i));
     }
   }
 
   // For booleans
-  void processImpl(bool b) { buffer_.push_back(b ? 1 : 0); }
+  void ProcessImpl(bool b) { buffer_.push_back(b ? 1 : 0); }
 
   // For strings
-  void processImpl(std::string const& s) {
+  void ProcessImpl(std::string const& s) {
     uint32_t length = s.length();
-    processImpl(length);
+    ProcessImpl(length);
     buffer_.insert(buffer_.end(), s.begin(), s.end());
   }
 
   // For vectors
   template <typename T>
-  void processImpl(std::vector<T> const& v) {
+  void ProcessImpl(std::vector<T> const& v) {
     uint32_t length = v.size();
-    processImpl(length);
-    if (sizeof(T) == 1) {
+    ProcessImpl(length);
+    if constexpr (sizeof(T) == 1) {
       // Speed optimisation for vectors of uint8_t and int8_t
-      uint8_t* ptr = (uint8_t*)v.data();
+      const uint8_t* ptr = reinterpret_cast<const uint8_t*>(v.data());
       buffer_.insert(buffer_.end(), ptr, ptr + length);
     } else {
       for (uint32_t i = 0; i < length; i++) {
-        processImpl(v[i]);
+        ProcessImpl(v[i]);
       }
     }
   }
@@ -86,8 +88,8 @@ class SerializationArchive {
   template <typename T>
   typename std::enable_if<!(std::is_integral<T>::value ||
                             std::is_enum<T>::value)>::type
-  processImpl(T a) {
-    a.runArchive(*this);
+  ProcessImpl(T a) {
+    a.RunArchive(*this);
   }
 
   std::vector<uint8_t> buffer_;
@@ -95,114 +97,156 @@ class SerializationArchive {
 
 class DeserializationArchive {
  public:
-  DeserializationArchive(void const* data) : current_cursor_(data){};
+  // |end| is the theoretical element that would follow the last element in the
+  // vector.
+  DeserializationArchive(const uint8_t* data, const uint8_t* end)
+      : current_cursor_(data), end_cursor_(end){};
 
-  DeserializationArchive(std::vector<uint8_t> const& buffer_)
-      : DeserializationArchive(buffer_.data()) {}
+  DeserializationArchive(std::vector<uint8_t> const& buffer)
+      : DeserializationArchive(buffer.data(), &*buffer.end()) {}
 
-  DeserializationArchive(std::vector<int8_t> const& buffer_)
-      : DeserializationArchive(buffer_.data()) {}
-
-  template <class... Types>
-  inline void operator()(Types&&... args) {
-    process(std::forward<Types>(args)...);
-  }
+  DeserializationArchive(std::vector<int8_t> const& buffer)
+      : DeserializationArchive(
+            reinterpret_cast<const uint8_t*>(buffer.data()),
+            reinterpret_cast<const uint8_t*>(&*buffer.end())) {}
 
   template <class T>
-  inline void process(T&& head) {
-    processImpl(head);
+  [[nodiscard]] inline bool Process(T&& head) {
+    return ProcessImpl(head);
   }
 
   // Unwinds to process all data
   template <class T, class... Other>
-  inline void process(T&& head, Other&&... tail) {
-    process(std::forward<T>(head));
-    process(std::forward<Other>(tail)...);
+  [[nodiscard]] inline bool Process(T&& head, Other&&... tail) {
+    bool success = ProcessImpl(std::forward<T>(head));
+    if (!success) {
+      return false;
+    }
+    return Process(std::forward<Other>(tail)...);
   }
 
   // For integral types and enums
   template <typename T>
-  typename std::enable_if<(std::is_integral<T>::value ||
-                           std::is_enum<T>::value) &&
-                          !std::is_same<T, bool>::value>::type
-  processImpl(T& i) {
-    if constexpr (sizeof(i) >= 2) {
+  [[nodiscard]] typename std::enable_if<(std::is_integral<T>::value ||
+                                         std::is_enum<T>::value) &&
+                                            !std::is_same<T, bool>::value,
+                                        bool>::type
+  ProcessImpl(T& i) {
+    if constexpr (sizeof(T) >= 2) {
       // Read 7 bits at a time.
       // The high bit of the byte when on means to continue reading more bytes.
       typename std::make_unsigned<T>::type unsigned_i = 0;
 
-      int shift = 0;
+      uint32_t shift = 0;
       uint8_t byte;
       do {
-        // TODO: Check for a corrupted stream.
-        // Read a nax if 3 bytes for 16 ints.
+        if (current_cursor_ >= end_cursor_) {
+          return false;
+        }
+        // Check for corrupted stream.
+        // Read a max if 3 bytes for 16 ints.
         // Read a max of 5 bytes for 32 ints.
         // Read a max of 9 bytes for 64 ints.
-        // for example, for 32 ints:
-        // if (shift == 5 * 7)  return false;
+        if (shift > (sizeof(T) + 1) * 7) {
+          return false;
+        }
 
         // ReadByte handles end of stream cases for us.
-        byte = *static_cast<const uint8_t*>(current_cursor_);
-        current_cursor_ = static_cast<const char*>(current_cursor_) + 1;
+        byte = *current_cursor_;
+        current_cursor_++;
         unsigned_i |= (static_cast<T>(byte & 0b1111111) << shift);
         shift += 7;
       } while ((byte & 0b10000000) != 0);
       i = (T)unsigned_i;
 
     } else {
+      if (current_cursor_ >= end_cursor_) {
+        return false;
+      }
       memcpy(&i, current_cursor_, sizeof(T));
-      current_cursor_ = static_cast<const char*>(current_cursor_) + sizeof(T);
+      current_cursor_ += sizeof(T);
     }
+    return true;
   }
 
   // For booleans
-  void processImpl(bool& b) {
-    auto v = *static_cast<const uint8_t*>(current_cursor_);
+  [[nodiscard]] bool ProcessImpl(bool& b) {
+    if (current_cursor_ >= end_cursor_) {
+      return false;
+    }
+    auto v = *current_cursor_;
     if (v == 0) {
       b = false;
     } else {
       b = true;
     }
-    current_cursor_ = static_cast<const char*>(current_cursor_) + 1;
+    current_cursor_++;
+    return true;
   }
 
   // For strings
-  void processImpl(std::string& s) {
+  [[nodiscard]] bool ProcessImpl(std::string& s) {
     uint32_t length;
-    processImpl(length);
-    const char* ptr = (const char*)current_cursor_;
+    auto read_length_success = ProcessImpl(length);
+    if (!read_length_success) {
+      return false;
+    }
+    if (length > kMaxStringLength) {
+      return false;
+    }
+    if (current_cursor_ + length > end_cursor_) {
+      return false;
+    }
+    const char* ptr = reinterpret_cast<const char*>(current_cursor_);
+
     size_t l = length;
     s = std::string(ptr, l);
-    current_cursor_ = static_cast<const char*>(current_cursor_) + length;
+    current_cursor_ += length;
+    return true;
   }
 
   // For vectors
   template <typename T>
-  void processImpl(std::vector<T>& v) {
+  [[nodiscard]] bool ProcessImpl(std::vector<T>& v) {
     uint32_t length;
-    processImpl(length);
-    if (sizeof(T) == 1) {
-      // Speed optimisation for vectors of uint8_t and int8_t
-      T* ptr = (T*)current_cursor_;
+    auto read_length_success = ProcessImpl(length);
+    if (!read_length_success) {
+      return false;
+    }
+    if (length > kMaxVectorElementCount) {
+      return false;
+    }
+    if constexpr (sizeof(T) == 1) {
+      if (current_cursor_ + length > end_cursor_) {
+        return false;
+      }
+      // Speed optimisation for vectors of uint8_t and int8_t.
+      const T* ptr = reinterpret_cast<const T*>(current_cursor_);
       v.insert(v.end(), ptr, ptr + length);
-      current_cursor_ = static_cast<const char*>(current_cursor_) + length;
+      current_cursor_ += length;
     } else {
       v.resize(length);
       for (uint32_t i = 0; i < length; i++) {
-        processImpl(v[i]);
+        auto success = ProcessImpl(v[i]);
+        if (!success) {
+          return false;
+        }
       }
     }
+    return true;
   }
 
   // For everything else
   template <typename T>
-  typename std::enable_if<!(std::is_integral<T>::value ||
-                            std::is_enum<T>::value)>::type
-  processImpl(T& a) {
-    a.runArchive(*this);
+  [[nodiscard]] typename std::enable_if<!(std::is_integral<T>::value ||
+                                          std::is_enum<T>::value),
+                                        bool>::type
+  ProcessImpl(T& a) {
+    return a.RunArchive(*this);
   }
 
-  void const* current_cursor_;
+  const uint8_t* current_cursor_;
+  const uint8_t* end_cursor_;
 };
 
 }  // namespace oreo
