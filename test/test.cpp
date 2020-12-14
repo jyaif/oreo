@@ -1,3 +1,4 @@
+#include <array>
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
@@ -38,6 +39,16 @@ void CheckCorrectness(std::vector<T> v) {
   std::vector<T> after_deserialization;
   assert(da.Process(after_deserialization));
   assert(v == after_deserialization);
+}
+
+template <class T, std::size_t N>
+void CheckCorrectness(std::array<T, N> a) {
+  oreo::SerializationArchive sa;
+  sa.Process(a);
+  oreo::DeserializationArchive da(sa.buffer_);
+  std::array<T, N> after_deserialization;
+  assert(da.Process(after_deserialization));
+  assert(a == after_deserialization);
 }
 
 template <class T>
@@ -220,6 +231,14 @@ int main() {
     RemoveLastByteAndCheckFailureToDeserialize(string);
     RemoveLastByteAndCheckFailureToDeserialize(vec_uint8);
     RemoveLastByteAndCheckFailureToDeserialize(foo);
+  }
+
+  {
+    // Test std::array
+    std::array<uint8_t, 4> array0 = {0x12, 0x56, 0x34, 0xab};
+    CheckCorrectness(array0);
+    std::array<uint32_t, 3> array1 = {0x777777, 0xa8, 0x8d786a};
+    CheckCorrectness(array1);
   }
 
   printf("tests successfully passed\n");

@@ -1,6 +1,7 @@
 #ifndef OREO_SRC_OREO_H_
 #define OREO_SRC_OREO_H_
 
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -80,6 +81,25 @@ class SerializationArchive {
     } else {
       for (uint32_t i = 0; i < length; i++) {
         ProcessImpl(v[i]);
+      }
+    }
+  }
+
+  // For std::arrays
+  template <typename T, std::size_t N>
+  void ProcessImpl(std::array<T, N> const& v) {
+    ProcessArray(v.data(), N);
+  }
+
+  template <typename T>
+  void ProcessArray(T* ptr, size_t N) {
+    if constexpr (sizeof(T) == 1) {
+      // Speed optimisation for vectors of uint8_t and int8_t
+      const uint8_t* casted_ptr = reinterpret_cast<const uint8_t*>(ptr);
+      buffer_.insert(buffer_.end(), casted_ptr, casted_ptr + N);
+    } else {
+      for (uint32_t i = 0; i < N; i++) {
+        ProcessImpl(ptr[i]);
       }
     }
   }
@@ -228,6 +248,33 @@ class DeserializationArchive {
       v.resize(length);
       for (uint32_t i = 0; i < length; i++) {
         auto success = ProcessImpl(v[i]);
+        if (!success) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  // For arrays
+  template <typename T, std::size_t N>
+  [[nodiscard]] bool ProcessImpl(std::array<T, N>& v) {
+    return ProcessImpl(v.data(), N);
+  }
+
+  template <typename T>
+  [[nodiscard]] bool ProcessImpl(T* dest, std::size_t N) {
+    if constexpr (sizeof(T) == 1) {
+      if (current_cursor_ + N > end_cursor_) {
+        return false;
+      }
+      // Speed optimisation for vectors of uint8_t and int8_t.
+      const T* ptr = reinterpret_cast<const T*>(current_cursor_);
+      memcpy(dest, ptr, N);
+      current_cursor_ += N;
+    } else {
+      for (uint32_t i = 0; i < N; i++) {
+        auto success = ProcessImpl(dest[i]);
         if (!success) {
           return false;
         }
