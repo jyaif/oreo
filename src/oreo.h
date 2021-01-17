@@ -64,7 +64,7 @@ class SerializationArchive {
 
   // For strings
   void ProcessImpl(std::string const& s) {
-    uint32_t length = s.length();
+    uint32_t length = static_cast<uint32_t>(s.length());
     ProcessImpl(length);
     buffer_.insert(buffer_.end(), s.begin(), s.end());
   }
@@ -72,7 +72,7 @@ class SerializationArchive {
   // For vectors
   template <typename T>
   void ProcessImpl(std::vector<T> const& v) {
-    uint32_t length = v.size();
+    uint32_t length = static_cast<uint32_t>(v.size());
     ProcessImpl(length);
     if constexpr (sizeof(T) == 1) {
       // Speed optimisation for vectors of uint8_t and int8_t
