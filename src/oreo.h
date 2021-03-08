@@ -59,6 +59,12 @@ class SerializationArchive {
     }
   }
 
+  // For floats
+  void ProcessImpl(float& float_value) {
+    const uint8_t* casted_ptr = reinterpret_cast<const uint8_t*>(&float_value);
+    ProcessArray(casted_ptr, sizeof(float));
+  }
+
   // For booleans
   void ProcessImpl(bool b) { buffer_.push_back(b ? 1 : 0); }
 
@@ -187,6 +193,12 @@ class DeserializationArchive {
       current_cursor_ += sizeof(T);
     }
     return true;
+  }
+
+  // For floats.
+  [[nodiscard]] bool ProcessImpl(float& f) {
+    uint8_t* ptr = reinterpret_cast<uint8_t*>(&f);
+    return ProcessImpl(ptr, sizeof(float));
   }
 
   // For booleans

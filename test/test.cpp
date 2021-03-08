@@ -25,9 +25,10 @@ struct Foo {
   QuxEnum e_;
   bool f_;
   bool g_;
+  float h_;
   template <class Archive>
   bool RunArchive(Archive& archive) {
-    return archive.Process(a_, b_, c_, d_, e_, f_, g_);
+    return archive.Process(a_, b_, c_, d_, e_, f_, g_, h_);
   }
 };
 
@@ -78,13 +79,25 @@ void RemoveLastByteAndCheckFailureToDeserialize(T object) {
   }
 }
 
+template <class T>
+void CheckCorrectness(T v) {
+  oreo::SerializationArchive sa;
+  sa.Process(v);
+  oreo::DeserializationArchive da(sa.buffer_);
+  T v2;
+  assert(da.Process(v2));
+  assert(v == v2);
+  RemoveLastByteAndCheckFailureToDeserialize(v);
+}
+
 int main() {
   Bar b0{"xyz", 19};
   Bar b1{"foo", 86};
-  Foo foo0{'X', 43, "abc", {b0, b1}, DEF, false, true};
-  std::vector<uint8_t> expected_output = {'X', 43,  3,   'a', 'b', 'c', 2,
-                                          3,   'x', 'y', 'z', 19,  3,   'f',
-                                          'o', 'o', 86,  1,   0,   1};
+  Foo foo0{'X', 43, "abc", {b0, b1}, DEF, false, true, 1.5};
+  // 1.5f is 0x3fc00000
+  std::vector<uint8_t> expected_output = {
+      'X', 43,  3,   'a', 'b', 'c', 2, 3, 'x', 'y', 'z',  19,
+      3,   'f', 'o', 'o', 86,  1,   0, 1, 0,   0,   0xc0, 0x3f};
 
   // Test serialization
   oreo::SerializationArchive sa;
@@ -176,6 +189,12 @@ int main() {
                                          0x7fffffffffffffff,
                                          0xffffffffffffffff};
   CheckCorrectness(uint64s);
+
+  // Test floating point values
+  CheckCorrectness(0.0f);
+  CheckCorrectness(-0.0f);
+  CheckCorrectness(1.6f);
+  CheckCorrectness(-42.6f);
 
   // Test deserialization errors
   std::vector<std::vector<uint8_t>> datas;
