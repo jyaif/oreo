@@ -114,8 +114,8 @@ class SerializationArchive {
   template <typename T>
   typename std::enable_if<!(std::is_integral<T>::value ||
                             std::is_enum<T>::value)>::type
-  ProcessImpl(T a) {
-    a.RunArchive(*this);
+  ProcessImpl(T const& a) {
+    const_cast<T&>(a).RunArchive(*this);
   }
 
   std::vector<uint8_t> buffer_;
