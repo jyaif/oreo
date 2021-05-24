@@ -126,7 +126,7 @@ class DeserializationArchive {
   // |end| is the theoretical element that would follow the last element in the
   // vector.
   DeserializationArchive(const uint8_t* data, const uint8_t* end)
-      : current_cursor_(data), end_cursor_(end){};
+      : current_cursor_(data), end_cursor_(end){}
 
   DeserializationArchive(std::vector<uint8_t> const& buffer)
       : DeserializationArchive(buffer.data(), &*buffer.end()) {}
