@@ -129,12 +129,12 @@ class DeserializationArchive {
       : current_cursor_(data), end_cursor_(end){}
 
   DeserializationArchive(std::vector<uint8_t> const& buffer)
-      : DeserializationArchive(buffer.data(), &*buffer.end()) {}
+      : DeserializationArchive(buffer.data(), buffer.data() + buffer.size()) {}
 
   DeserializationArchive(std::vector<int8_t> const& buffer)
       : DeserializationArchive(
             reinterpret_cast<const uint8_t*>(buffer.data()),
-            reinterpret_cast<const uint8_t*>(&*buffer.end())) {}
+            reinterpret_cast<const uint8_t*>(buffer.data() + buffer.size())) {}
 
   template <class T>
   [[nodiscard]] inline bool Process(T&& head) {
