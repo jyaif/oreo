@@ -75,6 +75,13 @@ class SerializationArchive {
     buffer_.insert(buffer_.end(), s.begin(), s.end());
   }
 
+  // For unique_ptr
+  template <typename T>
+  void ProcessImpl(std::unique_ptr<T> const& ptr) {
+    assert(ptr);
+    ProcessImpl(*ptr.get());
+  }
+
   // For vectors
   template <typename T>
   void ProcessImpl(std::vector<T> const& v) {
@@ -126,7 +133,7 @@ class DeserializationArchive {
   // |end| is the theoretical element that would follow the last element in the
   // vector.
   DeserializationArchive(const uint8_t* data, const uint8_t* end)
-      : current_cursor_(data), end_cursor_(end){}
+      : current_cursor_(data), end_cursor_(end) {}
 
   DeserializationArchive(std::vector<uint8_t> const& buffer)
       : DeserializationArchive(buffer.data(), buffer.data() + buffer.size()) {}
@@ -235,6 +242,13 @@ class DeserializationArchive {
     s = std::string(ptr, l);
     current_cursor_ += length;
     return true;
+  }
+
+  // For unique_ptr
+  template <typename T>
+  [[nodiscard]] bool ProcessImpl(std::unique_ptr<T>& ptr) {
+    ptr = std::make_unique<T>();
+    return ProcessImpl(*ptr.get());
   }
 
   // For vectors
