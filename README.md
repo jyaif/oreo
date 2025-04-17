@@ -1,7 +1,5 @@
 # oreo
 
-[![Build Status](https://api.travis-ci.org/jyaif/oreo.svg)](https://travis-ci.org/jyaif/oreo)
-
 Minimalist serialization library inspired by [Cereal](https://github.com/USCiLab/cereal).
 It's used by a game for serializing network messages.
 
@@ -21,9 +19,10 @@ TODO:
 
 ---
 
-To run tests locally:
+To run the cpp tests locally:
 
 ```
+cd cpp
 mkdir -p out
 cd out
 cmake ..
@@ -33,6 +32,7 @@ make
 
 for Xcode:
 ```
+cd cpp
 mkdir -p out2
 cd out2
 cmake -G "Xcode" ..

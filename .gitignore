@@ -1,6 +1,6 @@
 # CMake
-out/
-out2/
+cpp/out/
+cpp/out2/
 
 # macOS
 .DS_Store
