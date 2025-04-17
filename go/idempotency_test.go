@@ -33,7 +33,7 @@ func TestIdempotency(t *testing.T) {
 	assert.Equal(t, nil, err1)
 
 	var newBuffer bytes.Buffer
-	serializeInterface(initialValue, &newBuffer)
+	SerializeInterface(initialValue, &newBuffer)
 
 	newValue, err2 := DeserializeInterface(&newBuffer)
 	assert.Equal(t, nil, err2)

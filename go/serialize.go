@@ -47,7 +47,7 @@ func serializeList(v []interface{}, buf *bytes.Buffer) error {
 	binary.Write(buf, binary.LittleEndian, int8(List))
 	writeInt64(int64(val.Len()), buf)
 	for i := 0; i < val.Len(); i++ {
-		serializeInterface(val.Index(i).Interface(), buf)
+		SerializeInterface(val.Index(i).Interface(), buf)
 	}
 	return nil
 }
@@ -57,12 +57,12 @@ func serializeMap(m map[string]interface{}, buf *bytes.Buffer) error {
 	writeInt64(int64(len(m)), buf)
 	for k, v := range m {
 		writeString(k, buf)
-		serializeInterface(v, buf)
+		SerializeInterface(v, buf)
 	}
 	return nil
 }
 
-func serializeInterface(v interface{}, buf *bytes.Buffer) {
+func SerializeInterface(v interface{}, buf *bytes.Buffer) {
 	t := reflect.TypeOf(v)
 	switch t.Kind() {
 	case reflect.Slice, reflect.Array:
