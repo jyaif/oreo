@@ -91,6 +91,20 @@ void CheckCorrectness(T v) {
   //  RemoveLastByteAndCheckFailureToDeserialize(v);
 }
 
+void CheckVarLengthInteger(int64_t v, std::vector<uint8_t> expected) {
+  oreo::SerializationArchive sa;
+  sa.Process(v);
+  assert(sa.buffer_.size() == expected.size());
+  for (int i = 0; i < expected.size(); i++) {
+    assert(sa.buffer_[i] == expected[i]);
+  }
+  assert(sa.buffer_ == expected);
+  oreo::DeserializationArchive da(sa.buffer_);
+  int64_t v2;
+  assert(da.Process(v2));
+  assert(v == v2);
+}
+
 int main() {
   Bar b0{"xyz", 19};
   Bar b1{"foo", 86};
@@ -132,6 +146,29 @@ int main() {
   assert(foo1.e_ == DEF);
 
   // Test variable length integers
+  CheckVarLengthInteger(0, {0});
+  CheckVarLengthInteger(1, {1});
+  CheckVarLengthInteger(-1, {255, 255, 255, 255, 255, 255, 255, 255, 255, 1});
+  CheckVarLengthInteger(-2, {254, 255, 255, 255, 255, 255, 255, 255, 255, 1});
+  CheckVarLengthInteger(127, {127});
+  CheckVarLengthInteger(128, {128, 1});
+  CheckVarLengthInteger(200, {200, 1});
+  CheckVarLengthInteger(255, {255, 1});
+  CheckVarLengthInteger(256, {128, 2});
+  CheckVarLengthInteger(300, {172, 2});
+  CheckVarLengthInteger(32767, {255, 255, 1});
+  CheckVarLengthInteger(32768, {128, 128, 2});
+  CheckVarLengthInteger(65535, {255, 255, 3});
+  CheckVarLengthInteger(65536, {128, 128, 4});
+  CheckVarLengthInteger(0x7fffffff, {255, 255, 255, 255, 7});
+  CheckVarLengthInteger(0x80000000, {128, 128, 128, 128, 8});
+  CheckVarLengthInteger(0xffffffff, {255, 255, 255, 255, 15});
+  CheckVarLengthInteger(0x111111111111111,
+                        {145, 162, 196, 136, 145, 162, 196, 136, 1});
+  CheckVarLengthInteger(0x7fffffffffffffff,
+                        {255, 255, 255, 255, 255, 255, 255, 255, 127});
+  CheckVarLengthInteger(0xffffffffffffffff,
+                        {255, 255, 255, 255, 255, 255, 255, 255, 255, 1});
   const std::vector<int16_t> int16s = {
       0,  1,  2,   10,   100,  200,  300,   1000,  5000,   10000, 32767,
       -1, -2, -10, -100, -200, -300, -1000, -5000, -10000, -32768};

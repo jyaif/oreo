@@ -1,129 +1,265 @@
-package value
+package oreo
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
+	"reflect"
 )
 
-func readType(buf *bytes.Buffer) (ValueType, error) {
-	var t uint8
-	err := binary.Read(buf, binary.LittleEndian, &t)
-	return ValueType(t), err
-}
-
-func readBoolean(buf *bytes.Buffer) (bool, error) {
-	var v int8
-	err := binary.Read(buf, binary.LittleEndian, &v)
+func ReadBool(buf *bytes.Buffer, i *bool) error {
+	b, err := buf.ReadByte()
 	if err != nil {
-		return false, err
+		return err
 	}
-	if v == 0 {
-		return false, nil
-	}
-	return true, nil
+	*i = b != 0
+	return nil
 }
 
-func readInt32(buf *bytes.Buffer) (int32, error) {
-	var v int32
-	err := binary.Read(buf, binary.LittleEndian, &v)
-	return v, err
+func ReadVariableLengthInteger(buf *bytes.Buffer, i *uint64) error {
+	shift := int(0)
+	for {
+		b, err := buf.ReadByte()
+		if err != nil {
+			return err
+		}
+		*i |= uint64(b&0x7F) << shift
+		if b&0x80 == 0 {
+			break
+		}
+		shift += 7
+	}
+	return nil
 }
 
-func readInt64(buf *bytes.Buffer) (int64, error) {
-	var v int64
-	err := binary.Read(buf, binary.LittleEndian, &v)
-	return v, err
+func ReadInt(buf *bytes.Buffer, i *int) error {
+	var u uint64
+	err := ReadVariableLengthInteger(buf, &u)
+	if err != nil {
+		return err
+	}
+	*i = int(u)
+	return nil
 }
 
-func readString(buf *bytes.Buffer) (string, error) {
-	len, lenErr := readInt32(buf)
-	if lenErr != nil {
-		return "", lenErr
+func ReadInt8(buf *bytes.Buffer, i *int8) error {
+	b, err := buf.ReadByte()
+	if err != nil {
+		return err
 	}
-	n := buf.Cap() - buf.Len()
-	if int32(n) < len {
-		return "", fmt.Errorf("not enough bytes left: need %d, have %d", len, n)
-	}
-	var s = string(buf.Next(int(len)))
-	return s, nil
+	*i = int8(b)
+	return nil
 }
 
-func readList(buf *bytes.Buffer) ([]interface{}, error) {
-	len, lenErr := readInt64(buf)
-	if lenErr != nil {
-		return nil, lenErr
+func ReadInt16(buf *bytes.Buffer, i *int16) error {
+	var u uint64
+	err := ReadVariableLengthInteger(buf, &u)
+	if err != nil {
+		return err
 	}
-	var list []interface{}
-	for i := 0; i < int(len); i++ {
-		v, err := DeserializeInterface(buf)
-		if err != nil {
-			return nil, err
-		}
-		list = append(list, v)
-	}
-	return list, nil
+	*i = int16(u)
+	return nil
 }
 
-func readDictionnary(buf *bytes.Buffer) (map[string]interface{}, error) {
-	len, lenErr := readInt64(buf)
-	if lenErr != nil {
-		return nil, lenErr
+func ReadInt32(buf *bytes.Buffer, i *int32) error {
+	var u uint64
+	err := ReadVariableLengthInteger(buf, &u)
+	if err != nil {
+		return err
 	}
-	dic := make(map[string]interface{})
-	for i := 0; i < int(len); i++ {
-		key, keyErr := readString(buf)
-		if keyErr != nil {
-			return nil, keyErr
-		}
-		val, valErr := DeserializeInterface(buf)
-		if valErr != nil {
-			return nil, valErr
-		}
-		dic[key] = val
-	}
-	return dic, nil
+	*i = int32(u)
+	return nil
 }
 
-func DeserializeInterface(buf *bytes.Buffer) (interface{}, error) {
-	t, typeErr := readType(buf)
-	if typeErr != nil {
-		return nil, typeErr
+func ReadInt64(buf *bytes.Buffer, i *int64) error {
+	var u uint64
+	err := ReadVariableLengthInteger(buf, &u)
+	if err != nil {
+		return err
 	}
-	switch t {
-	case Boolean:
-		b, err := readBoolean(buf)
-		if err != nil {
-			return nil, err
-		}
-		return b, nil
-	case Int64:
-		i, err := readInt64(buf)
-		if err != nil {
-			return nil, err
-		}
-		return i, nil
-	case String:
-		s, err := readString(buf)
-		if err != nil {
-			return nil, err
-		}
-		return s, nil
-	case List:
-		l, err := readList(buf)
-		if err != nil {
-			return nil, err
-		}
-		return l, nil
-	case Dictionnary:
-		d, err := readDictionnary(buf)
-		if err != nil {
-			return nil, err
-		}
-		return d, nil
+	*i = int64(u)
+	return nil
+}
 
-	default:
-		return nil, errors.New("Unhandled type")
+func ReadUint(buf *bytes.Buffer, i *uint) error {
+	var u uint64
+	err := ReadVariableLengthInteger(buf, &u)
+	if err != nil {
+		return err
+	}
+	*i = uint(u)
+	return nil
+}
+
+func ReadUint8(buf *bytes.Buffer, i *uint8) error {
+	b, err := buf.ReadByte()
+	if err != nil {
+		return err
+	}
+	*i = uint8(b)
+	return nil
+}
+
+func ReadUint16(buf *bytes.Buffer, i *uint16) error {
+	var u uint64
+	err := ReadVariableLengthInteger(buf, &u)
+	if err != nil {
+		return err
+	}
+	*i = uint16(u)
+	return nil
+}
+
+func ReadUint32(buf *bytes.Buffer, i *uint32) error {
+	var u uint64
+	err := ReadVariableLengthInteger(buf, &u)
+	if err != nil {
+		return err
+	}
+	*i = uint32(u)
+	return nil
+}
+
+func ReadUint64(buf *bytes.Buffer, i *uint64) error {
+	return ReadVariableLengthInteger(buf, i)
+}
+
+func ReadString(buf *bytes.Buffer, i *string) error {
+	var length uint64
+	err := ReadVariableLengthInteger(buf, &length)
+	if err != nil {
+		return err
+	}
+	strBytes := make([]byte, length)
+	_, err = buf.Read(strBytes)
+	if err != nil {
+		return err
+	}
+	*i = string(strBytes)
+	return nil
+}
+
+func ReadArray(buf *bytes.Buffer, i interface{}) error {
+	// 1. Validate input 'i' is a pointer to a slice
+	ptrVal := reflect.ValueOf(i)
+	if ptrVal.Kind() != reflect.Ptr {
+		return errors.New("ReadArray: input is not a pointer")
+	}
+
+	sliceVal := ptrVal.Elem() // Get the value the pointer points to (the slice itself)
+	if sliceVal.Kind() != reflect.Slice {
+		return errors.New("ReadArray: input is not a pointer to a slice")
+	}
+
+	// 2. Read the length of the array
+	var length uint64
+	err := ReadVariableLengthInteger(buf, &length)
+	if err != nil {
+		return fmt.Errorf("ReadArray: failed to read array length: %w", err)
+	}
+
+	// Check for potential overflow that would cause memory issues.
+	const maxLen = 10000
+	if length > maxLen {
+		return fmt.Errorf("ReadArray: array length %d exceeds maximum allowed %d", length, maxLen)
+	}
+	intLen := int(length)
+
+	// 3. Create a new slice of the correct type and length
+	sliceType := sliceVal.Type()                             // Type of the slice (e.g., []int32)
+	newSlice := reflect.MakeSlice(sliceType, intLen, intLen) // Create new slice
+
+	// 4. Deserialize each element into the new slice
+	for j := 0; j < intLen; j++ {
+		// Get a pointer to the j-th element in the new slice
+		elemPtr := newSlice.Index(j).Addr().Interface()
+		// Deserialize into the element pointer
+		err := Deserialize(buf, elemPtr)
+		if err != nil {
+			return fmt.Errorf("ReadArray: failed to deserialize element %d (0-based): %w", j, err)
+		}
+	}
+
+	// 5. Set the original slice (via the pointer 'i') to the newly created slice
+	sliceVal.Set(newSlice)
+	return nil
+}
+
+// Populates the variable pointed to by `v` by reading data from `buf“.
+// If `v` points to a struct, it deserializes field by field based on struct order.
+// If `v` points to a basic type (bool, int, string...), it deserializes directly into it.
+func Deserialize(buf *bytes.Buffer, v interface{}) error {
+	ptrVal := reflect.ValueOf(v)
+
+	// We need a pointer to modify the original variable.
+	if ptrVal.Kind() != reflect.Ptr {
+		return fmt.Errorf("Deserialize: expected a pointer, got %T", v)
+	}
+	if ptrVal.IsNil() {
+		return fmt.Errorf("Deserialize: expected a non-nil pointer, got nil %T", v)
+	}
+
+	targetVal := ptrVal.Elem()
+
+	// Check if the pointed-to element is settable.
+	if !targetVal.CanSet() {
+		return fmt.Errorf("Deserialize: cannot set value of type %s (is it addressable/exported?)", targetVal.Type())
+	}
+
+	if targetVal.Kind() == reflect.Struct {
+		structType := targetVal.Type()
+		for i := 0; i < targetVal.NumField(); i++ {
+			fieldVal := targetVal.Field(i)
+			if !fieldVal.CanSet() { // Skip unexported/unsettable fields
+				continue
+			}
+			fieldPtrVal := fieldVal.Addr()
+			fieldPtrInterface := fieldPtrVal.Interface()
+			err := Deserialize(buf, fieldPtrInterface)
+			if err != nil {
+				fieldType := structType.Field(i) // Field metadata
+				return fmt.Errorf("error deserializing struct field '%s' (%s): %w",
+					fieldType.Name, fieldVal.Kind(), err)
+			}
+		}
+		return nil
+	} else {
+		var err error
+		switch targetVal.Kind() {
+		case reflect.Bool:
+			err = ReadBool(buf, v.(*bool))
+		case reflect.String:
+			err = ReadString(buf, v.(*string))
+		case reflect.Uint:
+			err = ReadUint(buf, v.(*uint))
+		case reflect.Uint8:
+			err = ReadUint8(buf, v.(*uint8))
+		case reflect.Uint16:
+			err = ReadUint16(buf, v.(*uint16))
+		case reflect.Uint32:
+			err = ReadUint32(buf, v.(*uint32))
+		case reflect.Uint64:
+			err = ReadUint64(buf, v.(*uint64))
+		case reflect.Int:
+			err = ReadInt(buf, v.(*int))
+		case reflect.Int8:
+			err = ReadInt8(buf, v.(*int8))
+		case reflect.Int16:
+			err = ReadInt16(buf, v.(*int16))
+		case reflect.Int32:
+			err = ReadInt32(buf, v.(*int32))
+		case reflect.Int64:
+			err = ReadInt64(buf, v.(*int64))
+		case reflect.Slice:
+			err = ReadArray(buf, v)
+		case reflect.Array:
+			err = ReadArray(buf, v)
+		default:
+			err = fmt.Errorf("unsupported type for direct deserialization: %s", targetVal.Kind())
+		}
+		if err != nil {
+			return fmt.Errorf("error deserializing %s: %w", targetVal.Kind(), err)
+		}
+		return nil
 	}
 }

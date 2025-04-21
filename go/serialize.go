@@ -1,81 +1,99 @@
-package value
+package oreo
 
 import (
 	"bytes"
-	"encoding/binary"
-	"fmt"
 	"reflect"
 )
 
-func writeInt64(v int64, buf *bytes.Buffer) error {
-	return binary.Write(buf, binary.LittleEndian, v)
-}
-
-func writeInt32(v int32, buf *bytes.Buffer) error {
-	return binary.Write(buf, binary.LittleEndian, v)
-}
-
-func writeString(v string, buf *bytes.Buffer) error {
-	writeInt32(int32(len(v)), buf)
-	strBytes := []byte(v)
-	return binary.Write(buf, binary.LittleEndian, strBytes)
-}
-
-func serializeInt64(v int64, buf *bytes.Buffer) error {
-	binary.Write(buf, binary.LittleEndian, int8(Int64))
-	return writeInt64(v, buf)
-}
-
-func serializeBool(v bool, buf *bytes.Buffer) error {
-	binary.Write(buf, binary.LittleEndian, int8(Boolean))
+func WriteBool(v bool, buf *bytes.Buffer) error {
 	b := func() int8 {
 		if v {
 			return int8(1)
 		}
 		return int8(0)
 	}()
-	return binary.Write(buf, binary.LittleEndian, b)
+	return buf.WriteByte(byte(b))
 }
 
-func serializeString(v string, buf *bytes.Buffer) error {
-	binary.Write(buf, binary.LittleEndian, int8(String))
-	return writeString(v, buf)
+func WriteInt8(v int8, buf *bytes.Buffer) error {
+	return buf.WriteByte(byte(v))
 }
 
-func serializeList(v []interface{}, buf *bytes.Buffer) error {
-	val := reflect.ValueOf(v)
-	binary.Write(buf, binary.LittleEndian, int8(List))
-	writeInt64(int64(val.Len()), buf)
-	for i := 0; i < val.Len(); i++ {
-		SerializeInterface(val.Index(i).Interface(), buf)
+func WriteVariableLengthInt(v uint64, buf *bytes.Buffer) error {
+	for v >= 0b10000000 {
+		err := buf.WriteByte(byte(v | 0b10000000))
+		if err != nil {
+			return err
+		}
+		v >>= 7
+	}
+	return buf.WriteByte(byte(v))
+}
+
+func WriteString(s string, buf *bytes.Buffer) error {
+	// Write the length of the string
+	err := WriteVariableLengthInt(uint64(len(s)), buf)
+	if err != nil {
+		return err
+	}
+	// Write the string itself
+	_, err = buf.WriteString(s)
+	return err
+}
+
+func WriteArray(i interface{}, buf *bytes.Buffer) error {
+	length := reflect.ValueOf(i).Len()
+	err := WriteVariableLengthInt(uint64(length), buf)
+	if err != nil {
+		return err
+	}
+	for j := 0; j < length; j++ {
+		err = Serialize(reflect.ValueOf(i).Index(j).Interface(), buf)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func serializeMap(m map[string]interface{}, buf *bytes.Buffer) error {
-	binary.Write(buf, binary.LittleEndian, int8(Dictionnary))
-	writeInt64(int64(len(m)), buf)
-	for k, v := range m {
-		writeString(k, buf)
-		SerializeInterface(v, buf)
+func Serialize(i interface{}, buf *bytes.Buffer) error {
+	t := reflect.TypeOf(i)
+	kind := t.Kind()
+
+	// Handle pointers
+	// if kind == reflect.Ptr {
+	// 	t = t.Elem()
+	// 	return Serialize(t, buf)
+	// }
+	if kind == reflect.Bool {
+		return WriteBool(i.(bool), buf)
+	}
+	if kind == reflect.Int8 {
+		return WriteInt8(i.(int8), buf)
+	}
+	if kind == reflect.Uint8 {
+		return WriteInt8(int8(i.(uint8)), buf)
+	}
+	if kind == reflect.Uint || kind == reflect.Uint16 || kind == reflect.Uint32 || kind == reflect.Uint64 {
+		return WriteVariableLengthInt(reflect.ValueOf(i).Uint(), buf)
+	}
+	if kind == reflect.Int || kind == reflect.Int16 || kind == reflect.Int32 || kind == reflect.Int64 {
+		return WriteVariableLengthInt(uint64(reflect.ValueOf(i).Int()), buf)
+	}
+	if kind == reflect.String {
+		return WriteString(i.(string), buf)
+	}
+	if kind == reflect.Array || kind == reflect.Slice {
+		return WriteArray(i, buf)
+	}
+
+	if kind == reflect.Struct {
+		for j := 0; j < t.NumField(); j++ {
+			err := Serialize(reflect.ValueOf(i).Field(j).Interface(), buf)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	return nil
-}
-
-func SerializeInterface(v interface{}, buf *bytes.Buffer) {
-	t := reflect.TypeOf(v)
-	switch t.Kind() {
-	case reflect.Slice, reflect.Array:
-		serializeList(v.([]interface{}), buf)
-	case reflect.Bool:
-		serializeBool(v.(bool), buf)
-	case reflect.Int64:
-		serializeInt64(v.(int64), buf)
-	case reflect.String:
-		serializeString(v.(string), buf)
-	case reflect.Map:
-		serializeMap(v.(map[string]interface{}), buf)
-	default:
-		panic(fmt.Sprintf("Type %v not supported", t.Kind()))
-	}
 }

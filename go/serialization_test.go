@@ -1,4 +1,4 @@
-package value
+package oreo
 
 import (
 	"bytes"
@@ -7,86 +7,88 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBasicSerialization(t *testing.T) {
-	{
-		buf := new(bytes.Buffer)
-		serializeBool(true, buf)
-		serializeBool(false, buf)
-		assert.Equal(t, []byte{1, 1, 1, 0}, buf.Bytes())
+func CheckSerialization(t *testing.T, i interface{}, expected []byte) {
+	buf := new(bytes.Buffer)
+	err := Serialize(i, buf)
+	if err != nil {
+		panic(err)
 	}
-	{
-		buf := new(bytes.Buffer)
-		v := int64(43)
-		serializeInt64(v, buf)
-		assert.Equal(t, []byte{2, 43, 0, 0, 0, 0, 0, 0, 0}, buf.Bytes())
-	}
-	{
-		buf := new(bytes.Buffer)
-		v := "pewpew"
-		serializeString(v, buf)
-		assert.Equal(t, []byte{3, 6, 0, 0, 0, 'p', 'e', 'w', 'p', 'e', 'w'}, buf.Bytes())
-	}
+	assert.Equal(t, len(expected), buf.Len(), "Buffer length should match expected length")
+	assert.Equal(t, expected, buf.Bytes(), "Serialized value should match expected value")
 }
 
-func TestSerializeInterface(t *testing.T) {
-	{
-		buf := new(bytes.Buffer)
-		SerializeInterface(true, buf)
-		SerializeInterface(false, buf)
-		assert.Equal(t, []byte{1, 1, 1, 0}, buf.Bytes())
-	}
-	{
-		buf := new(bytes.Buffer)
-		v := int64(43)
-		SerializeInterface(v, buf)
-		assert.Equal(t, []byte{2, 43, 0, 0, 0, 0, 0, 0, 0}, buf.Bytes())
-	}
-	{
-		buf := new(bytes.Buffer)
-		v := "pewpew"
-		SerializeInterface(v, buf)
-		assert.Equal(t, []byte{3, 6, 0, 0, 0, 'p', 'e', 'w', 'p', 'e', 'w'}, buf.Bytes())
-	}
+func TestBooleanSerialization(t *testing.T) {
+	CheckSerialization(t, false, []byte{0})
+	CheckSerialization(t, true, []byte{1})
 }
 
-func TestListSerialization(t *testing.T) {
-	// Empty list
-	{
-		buf := new(bytes.Buffer)
-		var list []interface{}
-		SerializeInterface(list, buf)
-		assert.Equal(t, []byte{5, 0, 0, 0, 0, 0, 0, 0, 0}, buf.Bytes())
-	}
-	// List with 2 elements
-	{
-		buf := new(bytes.Buffer)
-		var list []interface{}
-		list = append(list, true)
-		list = append(list, int64(43))
-		SerializeInterface(list, buf)
-		assert.Equal(t, []byte{5, 2, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 43, 0, 0, 0, 0, 0, 0, 0}, buf.Bytes())
-	}
+func TestInt8Serialization(t *testing.T) {
+	CheckSerialization(t, int8(127), []byte{127})
+	CheckSerialization(t, int8(-128), []byte{0x80})
+}
+func TestUint8Serialization(t *testing.T) {
+	CheckSerialization(t, uint8(127), []byte{127})
+	CheckSerialization(t, uint8(128), []byte{0x80})
+	CheckSerialization(t, uint8(255), []byte{0xff})
 }
 
-func TestMapSerialization(t *testing.T) {
-	// Empty map
-	{
-		buf := new(bytes.Buffer)
-		var m map[string]interface{}
-		SerializeInterface(m, buf)
-		assert.Equal(t, []byte{4, 0, 0, 0, 0, 0, 0, 0, 0}, buf.Bytes())
+func TestVariableLengthIntSerialization(t *testing.T) {
+	CheckSerialization(t, 0, []byte{0})
+	CheckSerialization(t, 1, []byte{1})
+	CheckSerialization(t, -1, []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 1})
+	CheckSerialization(t, -2, []byte{254, 255, 255, 255, 255, 255, 255, 255, 255, 1})
+	CheckSerialization(t, 127, []byte{127})
+	CheckSerialization(t, 128, []byte{128, 1})
+	CheckSerialization(t, 200, []byte{200, 1})
+	CheckSerialization(t, 255, []byte{255, 1})
+	CheckSerialization(t, 256, []byte{128, 2})
+	CheckSerialization(t, 300, []byte{172, 2})
+	CheckSerialization(t, 32767, []byte{255, 255, 1})
+	CheckSerialization(t, 32768, []byte{128, 128, 2})
+	CheckSerialization(t, 65535, []byte{255, 255, 3})
+	CheckSerialization(t, 65536, []byte{128, 128, 4})
+	CheckSerialization(t, 0x7fffffff, []byte{255, 255, 255, 255, 7})
+	CheckSerialization(t, 0x80000000, []byte{128, 128, 128, 128, 8})
+	CheckSerialization(t, 0xffffffff, []byte{255, 255, 255, 255, 15})
+	CheckSerialization(t, 0x111111111111111, []byte{145, 162, 196, 136, 145, 162, 196, 136, 1})
+	CheckSerialization(t, 0x7fffffffffffffff, []byte{255, 255, 255, 255, 255, 255, 255, 255, 127})
+}
+
+func TestStringSerialization(t *testing.T) {
+	CheckSerialization(t, "", []byte{0})
+	CheckSerialization(t, "a", []byte{1, 'a'})
+	CheckSerialization(t, "hello", []byte{5, 'h', 'e', 'l', 'l', 'o'})
+	CheckSerialization(t, "hello world", []byte{11, 'h', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd'})
+}
+
+func TestArraySerialization(t *testing.T) {
+	CheckSerialization(t, []int8{}, []byte{0})
+	CheckSerialization(t, []int8{1}, []byte{1, 1})
+	CheckSerialization(t, []int8{1, 2}, []byte{2, 1, 2})
+	CheckSerialization(t, []int8{1, 2, 3}, []byte{3, 1, 2, 3})
+	CheckSerialization(t, []int8{1, 2, 3, 4}, []byte{4, 1, 2, 3, 4})
+
+	CheckSerialization(t, []string{}, []byte{0})
+	CheckSerialization(t, []string{"a"}, []byte{1, 1, 'a'})
+	CheckSerialization(t, []string{"a", "b"}, []byte{2, 1, 'a', 1, 'b'})
+	CheckSerialization(t, []string{"hello", "world"}, []byte{2, 5, 'h', 'e', 'l', 'l', 'o', 5, 'w', 'o', 'r', 'l', 'd'})
+}
+
+func TestSerializeStruct(t *testing.T) {
+	type TestStruct struct {
+		A int8
+		B string
+		C []int32
 	}
-	// Map with 2 elements
-	{
-		buf := new(bytes.Buffer)
-		// var m map[string]interface{}{}
-		m := map[string]interface{}{}
-		// app
-		m["foo"] = int64(44)
-		m["bar"] = "pewpew"
-		SerializeInterface(m, buf)
-		assert.Equal(t, []byte{4, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0,
-			'f', 'o', 'o', 2, 44, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 'b', 'a',
-			'r', 3, 6, 0, 0, 0, 'p', 'e', 'w', 'p', 'e', 'w'}, buf.Bytes())
+	testStruct := TestStruct{
+		A: 1,
+		B: "hello",
+		C: []int32{1, 2, 3},
 	}
+	expected := []byte{
+		1,                          // A
+		5, 'h', 'e', 'l', 'l', 'o', // B
+		3, 1, 2, 3, // C
+	}
+	CheckSerialization(t, testStruct, expected)
 }

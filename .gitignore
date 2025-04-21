@@ -1,3 +1,5 @@
+.vscode/
+
 # CMake
 cpp/out/
 cpp/out2/
