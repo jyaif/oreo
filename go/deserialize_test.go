@@ -7,70 +7,38 @@ import (
 )
 
 func CheckDeserialization(t *testing.T, buffer []byte, expected interface{}) {
-	// Mark this function as a test helper.
-	// Error/Fatal messages will report the caller's line number.
 	t.Helper()
 
-	// 1. Validate the expected value and get its type.
-	// We cannot deserialize into a nil interface directly.
-	if expected == nil {
-		t.Fatal("CheckDeserialization: 'expected' value cannot be nil")
-		return // Or panic, as this is a test setup error
-	}
 	expectedType := reflect.TypeOf(expected)
-	// Further check in case expected was an explicit `interface{}(nil)`
 	if expectedType == nil {
 		t.Fatal("CheckDeserialization: 'expected' value cannot be a typeless nil")
 		return
 	}
 
-	// 2. Create a pointer to a new zero value of the expected type.
-	// reflect.New returns a Value representing a pointer to a new zero value.
 	targetPtrVal := reflect.New(expectedType)
 	// Get the actual pointer interface (e.g., *Foo, *string, *int)
 	targetPtrInterface := targetPtrVal.Interface()
 
-	// 3. Prepare the buffer
 	buf := bytes.NewBuffer(buffer)
-	initialLen := buf.Len() // For debugging output
+	initialLen := buf.Len()
 
-	// 4. Perform the deserialization
-	err := Deserialize(buf, targetPtrInterface) // Pass the pointer
+	err := Deserialize(buf, targetPtrInterface)
 
-	// 5. Check for deserialization errors
 	if err != nil {
-		// Use Fatalf as the test cannot proceed meaningfully.
 		t.Fatalf("Deserialize failed unexpectedly:\n Error: %v\n Expected Type: %T\n Buffer (len %d): %x",
 			err, expected, initialLen, buffer)
-		return // Keep compiler happy, Fatalf exits
 	}
-
-	// --- Optional Check: Buffer Consumption ---
-	// Decide if you want to enforce full buffer consumption.
-	// Sometimes partial reads might be valid depending on the protocol.
-	// If full consumption is always expected:
-
 	if buf.Len() > 0 {
-		t.Errorf("Buffer not fully consumed after Deserialize:\n Bytes remaining: %d\n Initial buffer: %x",
+		t.Fatalf("Buffer not fully consumed after Deserialize:\n Bytes remaining: %d\n Initial buffer: %x",
 			buf.Len(), buffer)
-		// Don't return here, still check the value if no error occurred
 	}
-
-	// 6. Get the actual deserialized value
-	// targetPtrVal is the reflect.Value of the pointer (*T).
-	// Elem() gets the reflect.Value of the pointed-to value (T).
-	actualValue := targetPtrVal.Elem().Interface() // Get the actual value (T) as interface{}
-
-	// 7. Compare actual vs. expected
-	// reflect.DeepEqual handles comparison for structs, slices, maps, etc.
+	actualValue := targetPtrVal.Elem().Interface()
 	if !reflect.DeepEqual(actualValue, expected) {
-		// Use Errorf to report the mismatch but allow other tests to run.
-		t.Errorf("Deserialized value mismatch:\n Expected: %#v (%T)\n Actual:   %#v (%T)\n Buffer (len %d): %x",
+		t.Fatalf("Deserialized value mismatch:\n Expected: %#v (%T)\n Actual:   %#v (%T)\n Buffer (len %d): %x",
 			expected, expected,
 			actualValue, actualValue,
 			initialLen, buffer)
 	}
-
 }
 
 func TestBooleanDeserialization(t *testing.T) {

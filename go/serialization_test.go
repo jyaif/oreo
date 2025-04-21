@@ -8,11 +8,14 @@ import (
 )
 
 func CheckSerialization(t *testing.T, i interface{}, expected []byte) {
+	t.Helper()
+
 	buf := new(bytes.Buffer)
 	err := Serialize(i, buf)
 	if err != nil {
-		panic(err)
+		t.Fatalf("Serialize failed unexpectedly:\n Error: %v\n", err)
 	}
+
 	assert.Equal(t, len(expected), buf.Len(), "Buffer length should match expected length")
 	assert.Equal(t, expected, buf.Bytes(), "Serialized value should match expected value")
 }

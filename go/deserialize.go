@@ -180,7 +180,6 @@ func ReadArray(buf *bytes.Buffer, i interface{}) error {
 		}
 	}
 
-	// 5. Set the original slice (via the pointer 'i') to the newly created slice
 	sliceVal.Set(newSlice)
 	return nil
 }
@@ -251,8 +250,6 @@ func Deserialize(buf *bytes.Buffer, v interface{}) error {
 		case reflect.Int64:
 			err = ReadInt64(buf, v.(*int64))
 		case reflect.Slice:
-			err = ReadArray(buf, v)
-		case reflect.Array:
 			err = ReadArray(buf, v)
 		default:
 			err = fmt.Errorf("unsupported type for direct deserialization: %s", targetVal.Kind())
