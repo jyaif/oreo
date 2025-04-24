@@ -56,15 +56,28 @@ func WriteArray(i interface{}, buf *bytes.Buffer) error {
 	return nil
 }
 
+func WritePointer(i interface{}, buf *bytes.Buffer) error {
+	v := reflect.ValueOf(i)
+	if v.IsNil() {
+		return WriteBool(false, buf)
+	}
+	err := WriteBool(true, buf)
+	if err != nil {
+		return err
+	}
+	return Serialize(v.Elem().Interface(), buf)
+}
+
 func Serialize(i interface{}, buf *bytes.Buffer) error {
+	if i == nil {
+		return WriteBool(false, buf)
+	}
 	t := reflect.TypeOf(i)
 	kind := t.Kind()
 
-	// Handle pointers
-	// if kind == reflect.Ptr {
-	// 	t = t.Elem()
-	// 	return Serialize(t, buf)
-	// }
+	if kind == reflect.Ptr {
+		return WritePointer(i, buf)
+	}
 	if kind == reflect.Bool {
 		return WriteBool(i.(bool), buf)
 	}

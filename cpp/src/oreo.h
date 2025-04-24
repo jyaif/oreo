@@ -78,7 +78,11 @@ class SerializationArchive {
   // For unique_ptr
   template <typename T>
   void ProcessImpl(std::unique_ptr<T> const& ptr) {
-    assert(ptr);
+    if (ptr == nullptr) {
+      ProcessImpl(false);
+      return;
+    }
+    ProcessImpl(true);
     ProcessImpl(*ptr.get());
   }
 
@@ -247,6 +251,14 @@ class DeserializationArchive {
   // For unique_ptr
   template <typename T>
   [[nodiscard]] bool ProcessImpl(std::unique_ptr<T>& ptr) {
+    bool unique_ptr_exists = false;
+    if (!ProcessImpl(unique_ptr_exists)) {
+      return false;
+    }
+    if (!unique_ptr_exists) {
+      ptr = nullptr;
+      return true;
+    }
     ptr = std::make_unique<T>();
     return ProcessImpl(*ptr.get());
   }

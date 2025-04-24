@@ -1,14 +1,16 @@
 # oreo
 
 > [!WARNING]
-> Contributions that break change the binary representation are unlikely to be accepted.
-> The binary representation of integers will change in the future.
+> Contributions that break change the binary representation are unlikely to be accepted...
+> [!WARNING]
+> ...and yet, the binary representation is not guaranteed to be stable.
+> [!WARNING]
 > Not production ready. Code should be used as a basis for rolling out your own serialization.
 
 Minimalist serialization library inspired by [Cereal](https://github.com/USCiLab/cereal).
 
 Some disadvantages compared to Cereal:
-* Only serializes/deserializes structs with booleans, integers, floats, enums, std::string, std::vector, std::array.
+* Only serializes/deserializes structs with booleans, integers, floats, enums, std::string, std::vector, std::array, std::unique_ptr.
 * Only serializes/deserializes to binary, with the endianness of the system.
 * No documentation and no efforts made to give useful compile-time error messages.
 * No built-in versioning.

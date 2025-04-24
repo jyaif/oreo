@@ -27,9 +27,10 @@ struct Foo {
   bool g_;
   float h_;
   std::unique_ptr<uint32_t> i_ = std::make_unique<uint32_t>(66);
+  std::unique_ptr<uint32_t> j_;
   template <class Archive>
   bool RunArchive(Archive& archive) {
-    return archive.Process(a_, b_, c_, d_, e_, f_, g_, h_, i_);
+    return archive.Process(a_, b_, c_, d_, e_, f_, g_, h_, i_, j_);
   }
 };
 
@@ -112,7 +113,7 @@ int main() {
   // 1.5f is 0x3fc00000
   std::vector<uint8_t> expected_output = {
       'X', 43,  3,   'a', 'b', 'c', 2, 3, 'x', 'y',  'z',  19, 3,
-      'f', 'o', 'o', 86,  1,   0,   1, 0, 0,   0xc0, 0x3f, 66};
+      'f', 'o', 'o', 86,  1,   0,   1, 0, 0,   0xc0, 0x3f, 1, 66, 0};
 
   // Test serialization
   oreo::SerializationArchive sa;
@@ -133,7 +134,7 @@ int main() {
 
   // Test complex deserialization
   oreo::DeserializationArchive da1(expected_output);
-  Foo foo1{0, 0, "", {}, ABC};
+  Foo foo1{0, 0, "", {}, ABC, false, false, 0.0f, nullptr, nullptr};
   assert(da1.Process(foo1));
   assert(foo1.a_ == 'X');
   assert(foo1.b_ == 43);
@@ -144,6 +145,12 @@ int main() {
   assert(foo1.d_[1].a_ == "foo");
   assert(foo1.d_[1].b_ == 86);
   assert(foo1.e_ == DEF);
+  assert(foo1.f_ == false);
+  assert(foo1.g_ == true);
+  assert(foo1.h_ == 1.5f);
+  assert(foo1.i_ != nullptr);
+  assert(*foo1.i_ == 66);
+  assert(foo1.j_ == nullptr);
 
   // Test variable length integers
   CheckVarLengthInteger(0, {0});

@@ -184,6 +184,58 @@ func ReadArray(buf *bytes.Buffer, i interface{}) error {
 	return nil
 }
 
+// ReadPointer deserializes a pointer from the buffer.
+// It first reads a boolean flag:
+// - If true: allocates memory for the pointed-to type and deserializes into it.
+// - If false: sets the pointer pointed to by 'i' to nil.
+func ReadPointer(buf *bytes.Buffer, i interface{}) error {
+	ptrVal := reflect.ValueOf(i)
+	if ptrVal.IsNil() {
+		return errors.New("ReadPointer: input pointer is nil")
+	}
+
+	// Get the pointer that we need to potentially set (e.g., *int in **int)
+	innerPtrVal := ptrVal.Elem()
+	if innerPtrVal.Kind() != reflect.Ptr {
+		// This check ensures we have a pointer *to* a pointer
+		return fmt.Errorf("ReadPointer: input is not a pointer to a pointer (got %T)", i)
+	}
+	if !innerPtrVal.CanSet() {
+		return errors.New("ReadPointer: inner pointer is not settable")
+	}
+
+	// 2. Read the validity flag (boolean indicating if the pointer is non-nil)
+	var isValid bool
+	err := ReadBool(buf, &isValid)
+	if err != nil {
+		return fmt.Errorf("ReadPointer: failed to read validity flag: %w", err)
+	}
+
+	// 3. Handle based on the validity flag
+	if !isValid {
+		// Pointer is nil, set the target pointer to its zero value (nil)
+		innerPtrVal.Set(reflect.Zero(innerPtrVal.Type())) // Set the *int (or *MyStruct etc.) to nil
+		return nil
+	} else {
+		// Pointer is valid, need to allocate and deserialize the underlying value
+
+		// Get the type of the element the pointer should point to (e.g., int from *int)
+		elemType := innerPtrVal.Type().Elem()
+
+		// Create a new value of the element type (allocates memory)
+		// reflect.New returns a Value representing a pointer to a new zero value for 'elemType'.
+		// So, if elemType is int, newValue is a Value representing *int.
+		newValue := reflect.New(elemType)
+
+		// Set the inner pointer (e.g., the *int) to point to this newly allocated memory.
+		innerPtrVal.Set(newValue)
+
+		// Now, deserialize the data *into* the newly allocated memory.
+		// We pass the interface{} representation of the pointer to the new memory.
+		return Deserialize(buf, newValue.Interface())
+	}
+}
+
 // Populates the variable pointed to by `v` by reading data from `buf“.
 // If `v` points to a struct, it deserializes field by field based on struct order.
 // If `v` points to a basic type (bool, int, string...), it deserializes directly into it.
@@ -251,6 +303,8 @@ func Deserialize(buf *bytes.Buffer, v interface{}) error {
 			err = ReadInt64(buf, v.(*int64))
 		case reflect.Slice:
 			err = ReadArray(buf, v)
+		case reflect.Pointer:
+			err = ReadPointer(buf, v)
 		default:
 			err = fmt.Errorf("unsupported type for direct deserialization: %s", targetVal.Kind())
 		}

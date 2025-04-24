@@ -156,3 +156,50 @@ func TestStruct(t *testing.T) {
 	}
 	Check(t, testStruct, expected)
 }
+
+func TestPointers(t *testing.T) {
+	{
+		var p *string
+		expected := []byte{0}
+		Check(t, p, expected)
+	}
+	{
+		p := new(string)
+		*p = "booya"
+		expected := []byte{
+			1, 5, 'b', 'o', 'o', 'y', 'a',
+		}
+		Check(t, p, expected)
+	}
+	{
+		str := new(string)
+		*str = "foo"
+
+		type InnerStruct struct {
+			X int8
+			Y string
+		}
+		type TestStruct struct {
+			A *int8
+			B *string
+			C *[]int32
+			D *InnerStruct
+			E *[]InnerStruct
+		}
+		testStruct := TestStruct{
+			A: nil,
+			B: str,
+			C: nil,
+			D: nil,
+			E: nil,
+		}
+		expected := []byte{
+			0,                   // A
+			1, 3, 'f', 'o', 'o', // B
+			0, // C
+			0, // D
+			0, // E
+		}
+		Check(t, testStruct, expected)
+	}
+}
