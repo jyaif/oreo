@@ -183,22 +183,25 @@ func TestPointers(t *testing.T) {
 			A *int8
 			B *string
 			C *[]int32
-			D *InnerStruct
-			E *[]InnerStruct
+			D *[]int32
+			E *InnerStruct
+			F *InnerStruct
 		}
 		testStruct := TestStruct{
 			A: nil,
 			B: str,
 			C: nil,
-			D: nil,
-			E: nil,
+			D: &[]int32{7, 8, 9},
+			E: &InnerStruct{X: 6, Y: "bar"},
+			F: nil,
 		}
 		expected := []byte{
 			0,                   // A
 			1, 3, 'f', 'o', 'o', // B
-			0, // C
-			0, // D
-			0, // E
+			0,             // C
+			1, 3, 7, 8, 9, // D
+			1, 6, 3, 'b', 'a', 'r', // E
+			0, // F
 		}
 		Check(t, testStruct, expected)
 	}
