@@ -2,8 +2,10 @@
 
 > [!WARNING]
 > Contributions that break change the binary representation are unlikely to be accepted...
+
 > [!WARNING]
 > ...and yet, the binary representation is not guaranteed to be stable.
+
 > [!WARNING]
 > Not production ready. Code should be used as a basis for rolling out your own serialization.
 
