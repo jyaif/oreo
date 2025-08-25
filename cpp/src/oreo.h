@@ -278,6 +278,7 @@ class DeserializationArchive {
       if (current_cursor_ + length > end_cursor_) {
         return false;
       }
+      v.clear();
       // Speed optimisation for vectors of uint8_t and int8_t.
       const T* ptr = reinterpret_cast<const T*>(current_cursor_);
       v.insert(v.end(), ptr, ptr + length);

@@ -36,12 +36,24 @@ struct Foo {
 
 template <class T>
 void CheckCorrectness(std::vector<T> v) {
-  oreo::SerializationArchive sa;
-  sa.Process(v);
-  oreo::DeserializationArchive da(sa.buffer_);
-  std::vector<T> after_deserialization;
-  assert(da.Process(after_deserialization));
-  assert(v == after_deserialization);
+  {
+    oreo::SerializationArchive sa;
+    sa.Process(v);
+    oreo::DeserializationArchive da(sa.buffer_);
+    std::vector<T> after_deserialization;
+    assert(da.Process(after_deserialization));
+    assert(v == after_deserialization);
+  }
+  {
+    // Same test, but deserialize into an std::vector that is not empty
+    oreo::SerializationArchive sa;
+    sa.Process(v);
+    oreo::DeserializationArchive da(sa.buffer_);
+    std::vector<T> after_deserialization;
+    after_deserialization.push_back(T{});
+    assert(da.Process(after_deserialization));
+    assert(v == after_deserialization);
+  }
 }
 
 template <class T, std::size_t N>
@@ -176,6 +188,9 @@ int main() {
                         {255, 255, 255, 255, 255, 255, 255, 255, 127});
   CheckVarLengthInteger(0xffffffffffffffff,
                         {255, 255, 255, 255, 255, 255, 255, 255, 255, 1});
+  const std::vector<int8_t> int8s = {
+      0,  1,  2,   10,   100};
+  CheckCorrectness(int8s);
   const std::vector<int16_t> int16s = {
       0,  1,  2,   10,   100,  200,  300,   1000,  5000,   10000, 32767,
       -1, -2, -10, -100, -200, -300, -1000, -5000, -10000, -32768};
