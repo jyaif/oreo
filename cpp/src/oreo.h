@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <map>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -15,6 +16,7 @@ namespace oreo {
 // 1 GB.
 constexpr size_t kMaxStringLength = 1073741824;
 constexpr size_t kMaxVectorElementCount = 1073741824;
+constexpr size_t kMaxMapElementCount = 2048;
 
 class SerializationArchive {
  public:
@@ -119,6 +121,19 @@ class SerializationArchive {
       for (uint32_t i = 0; i < N; i++) {
         ProcessImpl(ptr[i]);
       }
+    }
+  }
+
+  // For std::map
+  template <typename K, typename V>
+  void ProcessImpl(std::map<K, V> const& m) {
+    uint32_t length = static_cast<uint32_t>(m.size());
+    ProcessImpl(length);
+    K key;
+    V value;
+    for (auto it : m) {
+      ProcessImpl(it.first);
+      ProcessImpl(it.second);
     }
   }
 
@@ -319,6 +334,34 @@ class DeserializationArchive {
           return false;
         }
       }
+    }
+    return true;
+  }
+
+  // For std::map
+  template <typename K, typename V>
+  [[nodiscard]] bool ProcessImpl(std::map<K, V>& m) {
+    uint32_t length;
+    auto read_length_success = ProcessImpl(length);
+    if (!read_length_success) {
+      return false;
+    }
+    if (length > kMaxMapElementCount) {
+      return false;
+    }
+    K key;
+    V value;
+    m.clear();
+    for (uint32_t i = 0; i < length; i++) {
+      auto success_key = ProcessImpl(key);
+      if (!success_key) {
+        return false;
+      }
+      auto success_value = ProcessImpl(value);
+      if (!success_value) {
+        return false;
+      }
+      m[key] = value;
     }
     return true;
   }

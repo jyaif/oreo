@@ -2,6 +2,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
+#include <map>
 #include <string>
 
 #include "oreo.h"
@@ -124,8 +125,8 @@ int main() {
   Foo foo0{'X', 43, "abc", {b0, b1}, DEF, false, true, 1.5};
   // 1.5f is 0x3fc00000
   std::vector<uint8_t> expected_output = {
-      'X', 43,  3,   'a', 'b', 'c', 2, 3, 'x', 'y',  'z',  19, 3,
-      'f', 'o', 'o', 86,  1,   0,   1, 0, 0,   0xc0, 0x3f, 1, 66, 0};
+      'X', 43,  3,  'a', 'b', 'c', 2, 3, 'x',  'y',  'z', 19, 3, 'f',
+      'o', 'o', 86, 1,   0,   1,   0, 0, 0xc0, 0x3f, 1,   66, 0};
 
   // Test serialization
   oreo::SerializationArchive sa;
@@ -188,8 +189,7 @@ int main() {
                         {255, 255, 255, 255, 255, 255, 255, 255, 127});
   CheckVarLengthInteger(0xffffffffffffffff,
                         {255, 255, 255, 255, 255, 255, 255, 255, 255, 1});
-  const std::vector<int8_t> int8s = {
-      0,  1,  2,   10,   100};
+  const std::vector<int8_t> int8s = {0, 1, 2, 10, 100};
   CheckCorrectness(int8s);
   const std::vector<int16_t> int16s = {
       0,  1,  2,   10,   100,  200,  300,   1000,  5000,   10000, 32767,
@@ -318,6 +318,14 @@ int main() {
     CheckCorrectness(array0);
     std::array<uint32_t, 3> array1 = {0x777777, 0xa8, 0x8d786a};
     CheckCorrectness(array1);
+  }
+
+  {
+    // Test std::map
+    std::map<std::string, int64_t> m;
+    m["ten"] = 10;
+    m["eleven"] = 11;
+    CheckCorrectness(m);
   }
 
   printf("tests successfully passed\n");

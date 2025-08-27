@@ -6,13 +6,10 @@
 > [!WARNING]
 > ...and yet, the binary representation is not guaranteed to be stable.
 
-> [!WARNING]
-> Not production ready. Code should be used as a basis for rolling out your own serialization.
-
 Minimalist serialization library inspired by [Cereal](https://github.com/USCiLab/cereal).
 
 Some disadvantages compared to Cereal:
-* Only serializes/deserializes structs with booleans, integers, floats, enums, std::string, std::vector, std::array, std::unique_ptr.
+* Only serializes/deserializes structs with booleans, integers, floats, enums, std::string, std::vector, std::array, std::unique_ptr, std::map.
 * Only serializes/deserializes to binary, with the endianness of the system.
 * No documentation and no efforts made to give useful compile-time error messages.
 * No built-in versioning.
@@ -21,10 +18,7 @@ Some advantages compared to Cereal:
 * Does not use RTTI.
 * Lib is very few LOC: it is easier to customise, and has faster compile time.
 * Smaller footprint in the final binary. I shaved 8kb from a binary in release mode by switching ~20 smallish classes from cereal to oreo.
-* A Go implementation of the library exists.
-
-TODO:
-* Allow configuring maximum string/vector size when deserializing.
+* A Go implementation of a subset of the library exists.
 
 ---
 
