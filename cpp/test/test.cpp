@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <map>
+#include <optional>
 #include <string>
 
 #include "oreo.h"
@@ -29,9 +30,11 @@ struct Foo {
   float h_;
   std::unique_ptr<uint32_t> i_ = std::make_unique<uint32_t>(66);
   std::unique_ptr<uint32_t> j_;
+  std::optional<std::string> k_;
+  std::optional<std::string> l_ = "toto";
   template <class Archive>
   bool RunArchive(Archive& archive) {
-    return archive.Process(a_, b_, c_, d_, e_, f_, g_, h_, i_, j_);
+    return archive.Process(a_, b_, c_, d_, e_, f_, g_, h_, i_, j_, k_, l_);
   }
 };
 
@@ -125,8 +128,9 @@ int main() {
   Foo foo0{'X', 43, "abc", {b0, b1}, DEF, false, true, 1.5};
   // 1.5f is 0x3fc00000
   std::vector<uint8_t> expected_output = {
-      'X', 43,  3,  'a', 'b', 'c', 2, 3, 'x',  'y',  'z', 19, 3, 'f',
-      'o', 'o', 86, 1,   0,   1,   0, 0, 0xc0, 0x3f, 1,   66, 0};
+      'X', 43,  3,   'a', 'b', 'c', 2,   3,   'x', 'y', 'z',  19,
+      3,   'f', 'o', 'o', 86,  1,   0,   1,   0,   0,   0xc0, 0x3f,
+      1,   66,  0,   0,   1,   4,   't', 'o', 't', 'o'};
 
   // Test serialization
   oreo::SerializationArchive sa;
@@ -164,6 +168,8 @@ int main() {
   assert(foo1.i_ != nullptr);
   assert(*foo1.i_ == 66);
   assert(foo1.j_ == nullptr);
+  assert(foo1.k_.has_value() == false);
+  assert(foo1.l_.value() == "toto");
 
   // Test variable length integers
   CheckVarLengthInteger(0, {0});
@@ -326,6 +332,14 @@ int main() {
     m["ten"] = 10;
     m["eleven"] = 11;
     CheckCorrectness(m);
+  }
+
+  {
+    // Test std::optional
+    std::optional<std::string> o1;
+    CheckCorrectness(o1);
+    std::optional<std::string> o2 = "foo";
+    CheckCorrectness(o2);
   }
 
   printf("tests successfully passed\n");

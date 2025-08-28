@@ -9,7 +9,7 @@
 Minimalist serialization library inspired by [Cereal](https://github.com/USCiLab/cereal).
 
 Some disadvantages compared to Cereal:
-* Only serializes/deserializes structs with booleans, integers, floats, enums, std::string, std::vector, std::array, std::unique_ptr, std::map.
+* Only serializes/deserializes structs with booleans, integers, floats, enums, std::string, std::vector, std::array, std::unique_ptr, std::optional, std::map.
 * Only serializes/deserializes to binary, with the endianness of the system.
 * No documentation and no efforts made to give useful compile-time error messages.
 * No built-in versioning.

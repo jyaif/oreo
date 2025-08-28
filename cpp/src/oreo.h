@@ -89,6 +89,17 @@ class SerializationArchive {
     ProcessImpl(*ptr.get());
   }
 
+  // For std::optional
+  template <typename T>
+  void ProcessImpl(std::optional<T> const& o) {
+    if (o.has_value() == false) {
+      ProcessImpl(false);
+      return;
+    }
+    ProcessImpl(true);
+    ProcessImpl(o.value());
+  }
+
   // For vectors
   template <typename T>
   void ProcessImpl(std::vector<T> const& v) {
@@ -277,6 +288,25 @@ class DeserializationArchive {
     }
     ptr = std::make_unique<T>();
     return ProcessImpl(*ptr.get());
+  }
+
+  // For optional
+  template <typename T>
+  bool ProcessImpl(std::optional<T>& o) {
+    bool optional_has_value = false;
+    if (!ProcessImpl(optional_has_value)) {
+      return false;
+    }
+    if (!optional_has_value) {
+      o = {};
+      return true;
+    }
+    T value;
+    if (!ProcessImpl(value)) {
+      return false;
+    }
+    o = value;
+    return true;
   }
 
   // For vectors
