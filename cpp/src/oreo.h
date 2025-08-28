@@ -140,8 +140,6 @@ class SerializationArchive {
   void ProcessImpl(std::map<K, V> const& m) {
     uint32_t length = static_cast<uint32_t>(m.size());
     ProcessImpl(length);
-    K key;
-    V value;
     for (auto it : m) {
       ProcessImpl(it.first);
       ProcessImpl(it.second);
